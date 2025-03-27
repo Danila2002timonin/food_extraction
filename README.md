@@ -1,109 +1,101 @@
-# Image Object Detection and Extraction
+# Food Extractor
 
-A Python utility for detecting and extracting objects from images based on text descriptions using Hugging Face's DETR model and OpenAI's GPT-4o.
 
-## Overview
+## Структура проекта
 
-This project combines modern object detection with natural language understanding to extract objects from images based on user text prompts. It uses:
-
-1. **Hugging Face DETR Models** for object detection
-2. **OpenAI GPT-4o** for semantic matching between detected objects and user prompts
-3. **Additional heuristics** to find objects that might be missed by the neural network
-
-## How It Works
-
-1. The script analyzes an image using a DETR (DEtection TRansformer) model to detect all visible objects
-2. It uses GPT-4o to match the user's text prompt with the detected objects
-3. The best matching object is cropped from the image
-4. The result is saved as a new image file
-
-## Installation
-
-1. Clone this repository:
 ```
-git clone https://github.com/yourusername/image-detection-extraction.git
-cd image-detection-extraction
-```
-
-2. Create a virtual environment and install dependencies:
-```
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+food_extraction/
+├── __init__.py                    # Инициализация пакета
+├── main.py                        # Основная логика запуска
+├── run.py                         # Файл запуска из корня проекта
+├── detector/                      # Модуль детектора объектов
+│   ├── __init__.py
+│   ├── hugging_face_detector.py   # Основной класс детектора
+│   ├── object_detection.py        # Функции обнаружения объектов
+│   └── visualization.py           # Функции визуализации
+├── ai_services/                   # Модуль для работы с AI сервисами 
+│   ├── __init__.py
+│   ├── gpt_service.py             # Интеграция с OpenAI GPT-4o
+│   ├── semantic_matching.py       # Функции семантического сопоставления
+│   ├── stability_ai.py            # Интеграция со Stability AI
+│   └── data/                      # Данные конфигурации в JSON формате
+│       ├── food_container_mapping.json    # Сопоставления типов блюд и контейнеров
+│       ├── food_items.json               # Список пищевых элементов
+│       ├── tableware_items.json          # Список столовой посуды
+│       ├── forbidden_matches.json        # Запрещенные сочетания блюд и посуды
+│       └── multi_piece_dish_items.json   # Блюда из нескольких частей
+└── utils/                         # Вспомогательные утилиты
+    ├── __init__.py
+    └── image_utils.py             # Функции для работы с изображениями
 ```
 
-3. Create a `.env` file with your OpenAI API key:
-```
-OPENAI_API_KEY=your_api_key_here
-STABLE_DIFFUSION_API_KEY=your_stability_ai_key_here  # Required for background removal and image extension
-```
+## Установка
 
-## Usage
-
-Extract an object from an image based on a text description:
+Создайте виртуальное окружение и установите зависимости с помощью uv:
 
 ```bash
-python food_extractor_huggingface.py --image "path/to/image.jpg" --prompt "dish with red sauce"
+# Установите uv, если он еще не установлен
+pip install uv
+
+# Создайте виртуальное окружение и активируйте его
+uv venv
+source .venv/bin/activate   # для Windows: .venv\Scripts\activate
+
+# Установите зависимости
+uv pip install -r requirements.txt
 ```
 
-Automatically identify and extract the main dish (no prompt needed):
+## Использование
+
+### Базовое использование
+
+Запустите скрипт с помощью командной строки:
+
 ```bash
-python food_extractor_huggingface.py --image "path/to/image.jpg" --auto
+# Извлечение объекта по текстовому описанию
+uv run run.py --image path/to/image.jpg --prompt "pizza"
+
+# Автоматическое определение основного блюда
+uv run run.py --image path/to/image.jpg --auto
 ```
 
-### Advanced Features with Stability AI
+### Дополнительные опции
 
-#### Background Removal
-
-Remove the background from the extracted object:
 ```bash
-python food_extractor_huggingface.py --image "path/to/image.jpg" --prompt "dish with red sauce" --remove-bg
+# Удаление фона изображения
+uv run run.py --image path/to/image.jpg --prompt "steak" --remove-bg
+
+# Расширение изображения (требуется API Stability AI)
+uv run run.py --image path/to/image.jpg --prompt "cake" --extend --extend-left 100 --extend-right 100
+
+# Полный набор опций
+uv run run.py --image path/to/image.jpg --prompt "salad" --output result.png --model facebook/detr-resnet-101 --threshold 0.2 --debug --remove-bg --extend --extend-left 50 --extend-right 50 --extend-up 30 --extend-down 30
 ```
 
-#### Image Extension (Outpainting)
+## Параметры командной строки
 
-Extend the extracted image in one or more directions:
-```bash
-python food_extractor_huggingface.py --image "path/to/image.jpg" --prompt "dish with red sauce" --extend --extend-left 200 --extend-right 200
-```
+- `--image` - Путь к входному изображению
+- `--prompt` - Текстовое описание объекта для извлечения
+- `--auto` - Автоматическое определение основного блюда
+- `--output` - Путь для сохранения выходного изображения (по умолчанию: extracted_object.png)
+- `--api_key` - Ключ API OpenAI (если не установлен в переменных окружения)
+- `--model` - Название модели Hugging Face для обнаружения объектов
+- `--threshold` - Порог уверенности для обнаружения (0.0-1.0)
+- `--debug` - Включение режима отладки с визуализацией
+- `--remove-bg` - Использование Stability AI для удаления фона
+- `--extend` - Использование Stability AI для расширения изображения
+- `--extend-left` - Пиксели для расширения с левой стороны
+- `--extend-right` - Пиксели для расширения с правой стороны
+- `--extend-up` - Пиксели для расширения сверху
+- `--extend-down` - Пиксели для расширения снизу
+- `--stability-api-key` - Ключ API Stability AI (если не установлен в переменных окружения)
 
-You can combine these options:
-```bash
-# Extract, remove background, and extend
-python food_extractor_huggingface.py --image "path/to/image.jpg" --auto --remove-bg --extend --extend-up 100 --extend-down 100
-```
 
-Additional options:
-```bash
-# With debug visualizations
-python food_extractor_huggingface.py --image "path/to/image.jpg" --prompt "dish with red sauce" --debug
+## Переменные окружения
 
-# With a specific model
-python food_extractor_huggingface.py --image "path/to/image.jpg" --prompt "dish with red sauce" --model facebook/detr-resnet-101
+Следующие переменные окружения могут быть использованы вместо передачи их как аргументов:
 
-# With a custom detection threshold
-python food_extractor_huggingface.py --image "path/to/image.jpg" --prompt "dish with red sauce" --threshold 0.05
-```
+- `OPENAI_API_KEY` - Ключ API OpenAI
+- `STABLE_DIFFUSION_API_KEY` - Ключ API Stability AI
 
-## Output Files
-
-- `extracted_object.png`: The cropped object based on your text prompt
-- `extracted_object_nobg.png`: (when using --remove-bg) The extracted object with background removed
-- `extracted_object_nobg_extended.png`: (when using --extend) The extended image after processing
-- `debug_detections.png`: (when debug is enabled) Visualization of all detected objects
-- `debug_cropped.png`: (when debug is enabled) Intermediate cropped image
-
-## Dependencies
-
-- OpenCV
-- PyTorch
-- Transformers (Hugging Face)
-- OpenAI
-- Stability AI APIs (for background removal and image extension)
-- Matplotlib
-- Pillow
-- NumPy
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+Их можно установить в файле `.env` в корне проекта. 
