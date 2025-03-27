@@ -51,7 +51,7 @@ instance/
 
 # Data directories
 data/
-!ai_services/data/  # Keep this directory tracked
+!ai_services/data/
 
 # Images
 *.png
