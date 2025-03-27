@@ -284,7 +284,7 @@ def detect_objects(detector, image):
                 
                 # Skip background class (usually "dining table" or similar)
                 if label_name.lower() in ["dining table", "table", "background"]:
-            continue
+                    continue
                 
                 detected_objects.append({
                     "label": label_name,
@@ -309,7 +309,7 @@ def detect_objects(detector, image):
                 
                 # Skip background class
                 if label_name.lower() in ["dining table", "table", "background"]:
-            continue
+                    continue
                     
                 detected_objects.append({
                     "label": label_name,
