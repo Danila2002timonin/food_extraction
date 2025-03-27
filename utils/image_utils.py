@@ -3,16 +3,7 @@ import os
 from PIL import Image
 
 def save_result(result_image, output_path):
-    """
-    Save a PIL Image to the specified output path.
-    
-    Args:
-        result_image: PIL Image to save
-        output_path: Path to save the image
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
+    """Save a PIL Image to the specified output path"""
     try:
         # Create the output directory if it doesn't exist
         output_dir = os.path.dirname(output_path)
@@ -28,16 +19,7 @@ def save_result(result_image, output_path):
         return False
 
 def calculate_iou(box1, box2):
-    """
-    Calculate the Intersection over Union (IoU) between two bounding boxes.
-    
-    Args:
-        box1: First bounding box as [x1, y1, x2, y2]
-        box2: Second bounding box as [x1, y1, x2, y2]
-        
-    Returns:
-        float: IoU value between 0 and 1
-    """
+    """Calculate the Intersection over Union (IoU) between two bounding boxes"""
     # Determine coordinates of intersection rectangle
     x_left = max(box1[0], box2[0])
     y_top = max(box1[1], box2[1])

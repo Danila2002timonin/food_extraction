@@ -4,18 +4,7 @@ import base64
 import os
 
 def select_object_with_gpt(openai_client, text_prompt, detected_objects, is_auto_mode=False):
-    """
-    Use GPT-4o to select the object that best matches the text prompt.
-    
-    Args:
-        openai_client: OpenAI client instance
-        text_prompt: Text description of the object to find
-        detected_objects: List of detected objects with bounding boxes, labels, and scores
-        is_auto_mode: Whether we're in automatic mode where GPT identified the main dish
-        
-    Returns:
-        dict: Selected object matching the prompt, or None if no match found
-    """
+    """Use GPT-4o to select the object that best matches the text prompt"""
     try:
         # If we only have one object, return it without consulting GPT
         if len(detected_objects) == 1:
@@ -102,29 +91,39 @@ Since we're in automatic mode, please focus on selecting the main dish or food i
         return None
 
 def identify_main_dish(openai_client, image_path):
-    """
-    Use GPT-4o to identify the main dish in the image.
-    
-    Args:
-        openai_client: OpenAI client instance
-        image_path: Path to the image file
-        
-    Returns:
-        str: Description of the main dish, or None if identification failed
-    """
+    """Use GPT-4o to identify the main dish in the image"""
     try:
         # Convert image to base64 for API
         with open(image_path, "rb") as image_file:
             base64_image = base64.b64encode(image_file.read()).decode('utf-8')
         
-        prompt = """This image shows a food dish. Identify what the main dish is and describe it in a brief phrase (2-5 words only).
-Don't include any servingware in your description - just identify the main food.
-Examples of good responses:
-- "grilled salmon"
-- "chicken curry"
-- "chocolate cake"
-- "vegetable pasta"
-Be specific but concise."""
+        prompt = """This image shows a food dish. Please identify:
+1. What the main dish is (e.g., 'pasta', 'steak', 'soup')
+2. What container it is served in (e.g., 'plate', 'bowl', 'glass')
+3. A brief but detailed description (3-8 words) of the entire dish 
+
+Format your response as a valid JSON object with these keys:
+{
+  "dish": "name of dish",
+  "container": "name of container",
+  "description": "brief description"
+}
+
+For example:
+{
+  "dish": "soup",
+  "container": "bowl",
+  "description": "red borscht with sour cream"
+}
+
+or:
+{
+  "dish": "pasta",
+  "container": "plate",
+  "description": "spaghetti with tomato sauce and basil"
+}
+
+Only return the JSON object with no additional text."""
         
         # Send the request to GPT-4o
         response = openai_client.chat.completions.create(
@@ -144,14 +143,17 @@ Be specific but concise."""
                     ]
                 }
             ],
+            response_format={"type": "json_object"},
             max_tokens=300
         )
         
         # Extract the response
-        dish_description = response.choices[0].message.content.strip()
-        print(f"GPT-4o identified: {dish_description}")
+        result_text = response.choices[0].message.content.strip()
+        dish_info = json.loads(result_text)
         
-        return dish_description
+        print(f"GPT-4o identified: {dish_info['description']} in a {dish_info['container']}")
+        
+        return dish_info
         
     except Exception as e:
         print(f"Error identifying main dish: {e}")

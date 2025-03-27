@@ -4,7 +4,8 @@ import sys
 import argparse
 import traceback
 
-from food_extraction.detector.hugging_face_detector import HuggingFaceDetector
+from detector.hugging_face_detector import HuggingFaceDetector
+from ai_services.stability_ai import remove_background_with_stability, extend_image_with_stability
 
 def main():
     parser = argparse.ArgumentParser(description='Extract objects from images using Hugging Face models and GPT-4o')
@@ -78,7 +79,6 @@ def main():
             if args.remove_bg:
                 # Define output path for the no-background image
                 nobg_path = os.path.splitext(extracted_path)[0] + "_nobg.png"
-                from food_extraction.ai_services.stability_ai import remove_background_with_stability
                 success = remove_background_with_stability(extracted_path, nobg_path)
                 if success:
                     # Update extracted_path for potential further processing
@@ -92,7 +92,6 @@ def main():
                 if args.extend_left > 0 or args.extend_right > 0 or args.extend_up > 0 or args.extend_down > 0:
                     # Define output path for the extended image
                     extended_path = os.path.splitext(extracted_path)[0] + "_extended.png"
-                    from food_extraction.ai_services.stability_ai import extend_image_with_stability
                     success = extend_image_with_stability(
                         extracted_path, 
                         extended_path,

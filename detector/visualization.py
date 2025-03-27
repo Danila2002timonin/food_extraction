@@ -5,14 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 def visualize_detections(image, detected_objects, output_path):
-    """
-    Visualize detected objects on the image with bounding boxes and labels.
-    
-    Args:
-        image: PIL Image object
-        detected_objects: List of detected objects with bounding boxes, labels, and scores
-        output_path: Path to save the visualization
-    """
+    """Visualize detected objects on the image with bounding boxes and labels"""
     # Convert PIL image to numpy array for visualization
     img_viz = np.array(image)
     

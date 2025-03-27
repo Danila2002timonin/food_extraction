@@ -10,16 +10,7 @@ import sys
 import traceback
 
 def remove_background_with_stability(image_path, output_path="extracted_object_nobg.png"):
-    """
-    Remove the background from an image using Stability AI's API.
-    
-    Args:
-        image_path: Path to the input image
-        output_path: Path to save the output image
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
+    """Remove the background from an image using Stability AI's API"""
     try:
         # Get API key from environment
         api_key = os.environ.get("STABLE_DIFFUSION_API_KEY")
@@ -96,20 +87,7 @@ def remove_background_with_stability(image_path, output_path="extracted_object_n
         return False
         
 def extend_image_with_stability(image_path, output_path="extended_image.png", left=0, right=0, up=0, down=0):
-    """
-    Extend an image in specified directions using Stability AI's Outpainting API.
-    
-    Args:
-        image_path: Path to input image
-        output_path: Path to save output image
-        left: Pixels to extend on the left
-        right: Pixels to extend on the right
-        up: Pixels to extend on the top
-        down: Pixels to extend on the bottom
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
+    """Extend an image in specified directions using Stability AI's Outpainting API"""
     try:
         # Get API key from environment
         api_key = os.environ.get("STABLE_DIFFUSION_API_KEY")
