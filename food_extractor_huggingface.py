@@ -594,6 +594,10 @@ class HuggingFaceDetector:
         Returns:
             bool: True if successful, False otherwise
         """
+        # Load .env file to ensure we have the latest API key
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+        
         # Load API key from environment
         api_key = os.getenv("STABLE_DIFFUSION_API_KEY")
         
@@ -734,6 +738,10 @@ class HuggingFaceDetector:
         import requests
         import os
         from PIL import Image
+        from dotenv import load_dotenv
+        
+        # Load .env file to ensure we have the latest API key
+        load_dotenv(override=True)
         
         # Load API key from environment
         api_key = os.getenv("STABLE_DIFFUSION_API_KEY")
@@ -744,6 +752,14 @@ class HuggingFaceDetector:
             
         try:
             print(f"Extending image using Stability AI outpainting...")
+            
+            # Add clear log about which image is being used for outpainting
+            print(f"INPUT IMAGE FOR OUTPAINTING: {os.path.basename(image_path)}")
+            if "_nobg" in image_path:
+                print("✓ Using background-removed image for outpainting (recommended)")
+            else:
+                print("⚠ Using image with background for outpainting (consider using --remove-bg first)")
+                
             print(f"Extensions: left={left}, right={right}, up={up}, down={down}")
             
             # Check image size before sending
@@ -991,15 +1007,19 @@ def main():
             extracted_path = args.output
             detector.save_result(result, extracted_path)
             print(f"Object extraction completed successfully!")
+            print(f"Image processing flow: ORIGINAL → EXTRACTED ({os.path.basename(extracted_path)})")
             
             # Apply Stability AI background removal if requested
             if args.remove_bg:
                 # Define output path for the no-background image
                 nobg_path = os.path.splitext(extracted_path)[0] + "_nobg.png"
+                print(f"\n[STEP: BACKGROUND REMOVAL]")
+                print(f"Processing image: {os.path.basename(extracted_path)} → {os.path.basename(nobg_path)}")
                 success = detector.remove_background_with_stability(extracted_path, nobg_path)
                 if success:
                     # Update extracted_path for potential further processing
                     extracted_path = nobg_path
+                    print(f"Image processing flow: ORIGINAL → EXTRACTED → NO BACKGROUND ({os.path.basename(extracted_path)})")
                 else:
                     print("Background removal failed, continuing with original extraction")
             
@@ -1009,8 +1029,20 @@ def main():
                 if args.extend_left > 0 or args.extend_right > 0 or args.extend_up > 0 or args.extend_down > 0:
                     # Define output path for the extended image
                     extended_path = os.path.splitext(extracted_path)[0] + "_extended.png"
+                    print(f"\n[STEP: IMAGE EXTENSION/OUTPAINTING]")
+                    
+                    # IMPORTANT: Always check if we have a background-removed version available
+                    # This ensures we always use the no-bg version for outpainting if it exists
+                    nobg_path = os.path.splitext(args.output)[0] + "_nobg.png"
+                    source_for_outpainting = extracted_path
+                    
+                    if os.path.exists(nobg_path) and args.remove_bg:
+                        print(f"Background-removed image found, using it for outpainting")
+                        source_for_outpainting = nobg_path
+                    
+                    print(f"Processing image: {os.path.basename(source_for_outpainting)} → {os.path.basename(extended_path)}")
                     success = detector.extend_image_with_stability(
-                        extracted_path, 
+                        source_for_outpainting, 
                         extended_path,
                         left=args.extend_left,
                         right=args.extend_right,
@@ -1019,6 +1051,9 @@ def main():
                     )
                     if success:
                         print(f"Final output saved to: {os.path.abspath(extended_path)}")
+                        print(f"Complete image processing flow: ORIGINAL → EXTRACTED" + 
+                              (f" → NO BACKGROUND" if args.remove_bg else "") + 
+                              f" → EXTENDED ({os.path.basename(extended_path)})")
                     else:
                         print(f"Image extension failed, final output is: {os.path.abspath(extracted_path)}")
                 else:
