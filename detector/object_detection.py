@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import os
 import json
+import traceback
 from utils.image_utils import calculate_iou
 
 # Load data from JSON files

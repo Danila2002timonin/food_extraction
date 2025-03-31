@@ -68,3 +68,8 @@ Splento - ТЗ.md
 output/
 results/
 debug_detector.py
+test_data
+test_results
+test_results2
+
+test_pipeline.py
