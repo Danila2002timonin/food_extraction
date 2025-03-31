@@ -8,185 +8,231 @@ from PIL import Image
 from io import BytesIO
 import sys
 import traceback
+from dotenv import load_dotenv
 
-def remove_background_with_stability(image_path, output_path="extracted_object_nobg.png"):
+def remove_background_with_stability(image_path, output_path="extracted_object_nobg.png", debug_mode=False):
     """Remove the background from an image using Stability AI's API"""
     try:
+        # Load .env file to ensure we have the latest API key
+        load_dotenv(override=True)
+        
         # Get API key from environment
         api_key = os.environ.get("STABLE_DIFFUSION_API_KEY")
         if not api_key:
-            print("Error: STABLE_DIFFUSION_API_KEY environment variable is not set.")
             return False
+        
+        # Check image dimensions before sending
+        img = Image.open(image_path)
+        width, height = img.size
+        total_pixels = width * height
+        
+        # Stability AI has a limit of 4,194,304 pixels (2048x2048)
+        MAX_PIXELS = 4_194_304
+        
+        # If image is too large, resize it
+        use_path = image_path
+        if total_pixels > MAX_PIXELS:
+            # Calculate the scaling factor to fit within the limit
+            scale_factor = (MAX_PIXELS / total_pixels) ** 0.5
+            new_width = int(width * scale_factor)
+            new_height = int(height * scale_factor)
             
-        print(f"Removing background from image: {image_path}")
-        
-        # Prepare headers for the API request
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
-        
-        # Ensure we have a valid image file
-        if not os.path.exists(image_path):
-            print(f"Error: Image file not found at {image_path}")
-            return False
+            # Resize the image
+            img = img.resize((new_width, new_height), Image.LANCZOS)
             
-        # Prepare the image for upload
-        with open(image_path, "rb") as image_file:
-            encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
+            # Save to a temporary file
+            temp_path = os.path.splitext(image_path)[0] + "_resized_temp.png"
+            img.save(temp_path)
+            
+            # Use the resized image for background removal
+            use_path = temp_path
         
-        # Prepare the payload for the API request
-        payload = {
-            "image_base64": encoded_image,
-        }
-        
-        # Make the API request to remove background
-        print("Calling Stability AI API to remove background...")
+        # Use v2beta endpoint as in food_extractor_huggingface.py
         response = requests.post(
-            "https://api.stability.ai/v1/generation/image-to-alpha",
-            headers=headers,
-            json=payload
+            "https://api.stability.ai/v2beta/stable-image/edit/remove-background",
+            headers={
+                "authorization": f"Bearer {api_key}",
+                "accept": "image/*"
+            },
+            files={
+                "image": open(use_path, "rb")
+            },
+            data={
+                "output_format": "png"
+            },
         )
         
-        # Check if the request was successful
-        if response.status_code != 200:
-            print(f"Error: API request failed with status code {response.status_code}")
-            print(f"Response: {response.text}")
+        if response.status_code == 200:
+            with open(output_path, 'wb') as file:
+                file.write(response.content)
+            
+            # Clean up temporary file if it was created
+            if total_pixels > MAX_PIXELS:
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+                    
+            return True
+        else:
+            # Try alternative approach - Stability AI has multiple API endpoints
+            try:
+                response = requests.post(
+                    "https://api.stability.ai/v1/generation/stable-image/remove-background",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Accept": "image/*"
+                    },
+                    files={
+                        "image": open(use_path, "rb")
+                    },
+                    data={
+                        "output_format": "png"
+                    },
+                )
+                
+                if response.status_code == 200:
+                    with open(output_path, 'wb') as file:
+                        file.write(response.content)
+                    
+                    # Clean up temporary file if it was created
+                    if total_pixels > MAX_PIXELS:
+                        try:
+                            os.remove(temp_path)
+                        except:
+                            pass
+                            
+                    return True
+            except:
+                pass
+            
             return False
             
-        # Parse the response
-        result = response.json()
-        
-        # Check if the response contains the expected data
-        if 'artifacts' not in result or len(result['artifacts']) == 0:
-            print("Error: Unexpected API response format")
-            print(f"Response: {result}")
-            return False
-            
-        # Get the base64-encoded image with alpha channel
-        output_b64 = result['artifacts'][0]['base64']
-        
-        # Convert the base64 string to an image
-        output_data = base64.b64decode(output_b64)
-        
-        # Create the output directory if it doesn't exist
-        output_dir = os.path.dirname(output_path)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        
-        # Save the image with alpha channel
-        with open(output_path, "wb") as output_file:
-            output_file.write(output_data)
-            
-        print(f"Background removed successfully. Saved to: {os.path.abspath(output_path)}")
-        return True
-        
     except Exception as e:
-        print(f"Error removing background: {e}")
-        traceback.print_exc()
+        if debug_mode:
+            traceback.print_exc()
         return False
         
-def extend_image_with_stability(image_path, output_path="extended_image.png", left=0, right=0, up=0, down=0):
+def extend_image_with_stability(image_path, output_path="extended_image.png", left=0, right=0, up=0, down=0, debug_mode=False):
     """Extend an image in specified directions using Stability AI's Outpainting API"""
     try:
+        # Load .env file to ensure we have the latest API key
+        load_dotenv(override=True)
+        
         # Get API key from environment
         api_key = os.environ.get("STABLE_DIFFUSION_API_KEY")
         if not api_key:
-            print("Error: STABLE_DIFFUSION_API_KEY environment variable is not set.")
             return False
+        
+        # Check image size before sending
+        img = Image.open(image_path)
+        img_width, img_height = img.size
+        total_pixels = img_width * img_height
+        
+        # Stability AI has a limit of around 4 million pixels
+        MAX_PIXELS = 4_194_304  # 2048x2048
+        
+        # If image is too large, resize it
+        use_path = image_path
+        if total_pixels > MAX_PIXELS:
+            # Calculate the scaling factor to fit within the limit
+            scale_factor = (MAX_PIXELS / total_pixels) ** 0.5
+            new_width = int(img_width * scale_factor)
+            new_height = int(img_height * scale_factor)
             
-        # Check if the image exists
-        if not os.path.exists(image_path):
-            print(f"Error: Image file not found at {image_path}")
-            return False
+            # Resize the image
+            img = img.resize((new_width, new_height), Image.LANCZOS)
             
-        # Check if any extensions are requested
-        if left == 0 and right == 0 and up == 0 and down == 0:
-            print("No extension values provided. Skipping image extension.")
-            return False
+            # Save to a temporary file
+            temp_path = os.path.splitext(image_path)[0] + "_resized_temp.png"
+            img.save(temp_path)
             
-        # Load the image to get its dimensions
-        original_image = Image.open(image_path)
-        width, height = original_image.size
+            # Use the resized image for outpainting
+            use_path = temp_path
         
-        # Determine the new dimensions
-        new_width = width + left + right
-        new_height = height + up + down
+        # Prepare the data payload - only include non-zero extensions
+        data = {"output_format": "png"}  # Use PNG instead of WEBP for better compatibility
         
-        print(f"Extending image from {width}x{height} to {new_width}x{new_height}")
-        print(f"Extensions: left={left}, right={right}, up={up}, down={down}")
+        if left > 0:
+            data["left"] = left
+        if right > 0:
+            data["right"] = right
+        if up > 0:
+            data["up"] = up
+        if down > 0:
+            data["down"] = down
         
-        # Prepare headers for the API request
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
-        
-        # Convert image to base64
-        with open(image_path, "rb") as image_file:
-            encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
-        
-        # Set up the API request for outpainting
-        payload = {
-            "image": f"data:image/png;base64,{encoded_image}",
-            "mask": None,  # No mask needed for full outpainting
-            "width": new_width,
-            "height": new_height,
-            "padding_left": left,
-            "padding_right": right,
-            "padding_top": up,
-            "padding_bottom": down,
-            "prompt": "food, dish, plate, high quality, detailed, realistic",
-            "outpainting_mode": "PRECISE",
-            "samples": 1,
-            "cfg_scale": 7,
-            "steps": 30
-        }
-        
-        # Make the API request
-        print("Calling Stability AI API for image extension (outpainting)...")
-        print("This may take a moment...")
         response = requests.post(
-            "https://api.stability.ai/v1/generation/stable-image/outpaint",
-            headers=headers,
-            json=payload
+            "https://api.stability.ai/v2beta/stable-image/edit/outpaint",
+            headers={
+                "authorization": f"Bearer {api_key}",
+                "accept": "image/*"
+            },
+            files={
+                "image": open(use_path, "rb")
+            },
+            data=data
         )
         
-        # Check for non-200 responses
-        if response.status_code != 200:
-            print(f"Error: API request failed with status code {response.status_code}")
-            print(f"Response: {response.text}")
+        if response.status_code == 200:
+            with open(output_path, 'wb') as file:
+                file.write(response.content)
+            
+            # Clean up temporary file if it was created
+            if total_pixels > MAX_PIXELS:
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+                    
+            return True
+        else:
+            # Try the v1 endpoint as fallback
+            try:
+                # Prepare the alternative payload
+                alt_payload = {
+                    "image": f"data:image/png;base64,{base64.b64encode(open(use_path, 'rb').read()).decode('utf-8')}",
+                    "mask": None,  # No mask needed for full outpainting
+                    "width": img_width + left + right,
+                    "height": img_height + up + down,
+                    "padding_left": left,
+                    "padding_right": right,
+                    "padding_top": up,
+                    "padding_bottom": down,
+                    "prompt": "food, dish, plate, high quality, detailed, realistic",
+                    "outpainting_mode": "PRECISE",
+                    "samples": 1,
+                    "cfg_scale": 7,
+                    "steps": 30
+                }
+                
+                alt_response = requests.post(
+                    "https://api.stability.ai/v1/generation/stable-image/outpaint",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    json=alt_payload
+                )
+                
+                if alt_response.status_code == 200:
+                    alt_result = alt_response.json()
+                    if 'artifacts' in alt_result and len(alt_result['artifacts']) > 0:
+                        extended_image_b64 = alt_result['artifacts'][0]['base64']
+                        extended_image_data = base64.b64decode(extended_image_b64)
+                        
+                        with open(output_path, "wb") as f:
+                            f.write(extended_image_data)
+                            
+                        return True
+                    
+            except:
+                pass
+                
             return False
             
-        # Process the response
-        result = response.json()
-        
-        # Save the temporary file for debugging
-        with open("outpainting_response.json", "w") as f:
-            json.dump(result, f, indent=2)
-        
-        if 'artifacts' not in result or len(result['artifacts']) == 0:
-            print("Error: Unexpected API response format")
-            print(f"Response: {result}")
-            return False
-            
-        # Get the base64-encoded extended image
-        extended_image_b64 = result['artifacts'][0]['base64']
-        extended_image_data = base64.b64decode(extended_image_b64)
-        
-        # Save the extended image
-        with open(output_path, "wb") as f:
-            f.write(extended_image_data)
-        
-        # Also save a temporary version for debugging
-        with open("extracted_object_temp_extend.png", "wb") as f:
-            f.write(extended_image_data)
-            
-        print(f"Image extended successfully. Saved to: {os.path.abspath(output_path)}")
-        return True
-        
     except Exception as e:
-        print(f"Error extending image: {e}")
-        traceback.print_exc()
-        return False 
+        if debug_mode:
+            traceback.print_exc()
+        return False

@@ -22,7 +22,7 @@ def main():
     
     # Stability AI features
     parser.add_argument('--remove-bg', action='store_true', help='Use Stability AI to remove background after extraction')
-    parser.add_argument('--extend', action='store_true', help='Use Stability AI to extend image after extraction')
+    parser.add_argument('--extend', action='store_true', help='Use Stability AI to extend image after extension')
     parser.add_argument('--extend-left', type=int, default=0, help='Pixels to extend on the left side')
     parser.add_argument('--extend-right', type=int, default=0, help='Pixels to extend on the right side')
     parser.add_argument('--extend-up', type=int, default=0, help='Pixels to extend on the top')
@@ -31,18 +31,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Print feature information
-    print("\n=== Food Extractor with Hugging Face and Stability AI ===")
-    print("Features:")
-    print("  - Object detection using Hugging Face DETR models")
-    print("  - Semantic object selection with GPT-4o")
-    print("  - Background removal with Stability AI")
-    print("  - Image extension (outpainting) with Stability AI (may require upgraded API access)")
-    print("==================================================\n")
-    
     # Verify that either a prompt is provided or auto mode is enabled
     if not args.prompt and not args.auto:
-        print("Error: You must either provide a prompt with --prompt or use --auto mode")
         return
         
     # Set Stability API key if provided
@@ -50,11 +40,6 @@ def main():
         os.environ["STABLE_DIFFUSION_API_KEY"] = args.stability_api_key
     
     try:
-        if args.auto:
-            print(f"Auto mode: Processing main dish from image: {args.image}")
-        else:
-            print(f"Processing object '{args.prompt}' from image: {args.image}")
-            
         detector = HuggingFaceDetector(
             api_key=args.api_key,
             model_name=args.model,
@@ -73,18 +58,15 @@ def main():
             # Save the extracted object
             extracted_path = args.output
             detector.save_result(result, extracted_path)
-            print(f"Object extraction completed successfully!")
             
             # Apply Stability AI background removal if requested
             if args.remove_bg:
                 # Define output path for the no-background image
                 nobg_path = os.path.splitext(extracted_path)[0] + "_nobg.png"
-                success = remove_background_with_stability(extracted_path, nobg_path)
+                success = remove_background_with_stability(extracted_path, nobg_path, debug_mode=args.debug)
                 if success:
                     # Update extracted_path for potential further processing
                     extracted_path = nobg_path
-                else:
-                    print("Background removal failed, continuing with original extraction")
             
             # Apply Stability AI image extension if requested
             if args.extend:
@@ -92,29 +74,26 @@ def main():
                 if args.extend_left > 0 or args.extend_right > 0 or args.extend_up > 0 or args.extend_down > 0:
                     # Define output path for the extended image
                     extended_path = os.path.splitext(extracted_path)[0] + "_extended.png"
-                    success = extend_image_with_stability(
-                        extracted_path, 
+                    
+                    # Try to use the background-removed image if it exists
+                    nobg_path = os.path.splitext(args.output)[0] + "_nobg.png"
+                    source_for_outpainting = extracted_path
+                    
+                    if os.path.exists(nobg_path) and args.remove_bg:
+                        source_for_outpainting = nobg_path
+                    
+                    extend_image_with_stability(
+                        source_for_outpainting, 
                         extended_path,
                         left=args.extend_left,
                         right=args.extend_right,
                         up=args.extend_up,
-                        down=args.extend_down
+                        down=args.extend_down,
+                        debug_mode=args.debug
                     )
-                    if success:
-                        print(f"Final output saved to: {os.path.abspath(extended_path)}")
-                    else:
-                        print(f"Image extension failed, final output is: {os.path.abspath(extracted_path)}")
-                else:
-                    print("No extension values provided, skipping image extension")
-                    print(f"Final output saved to: {os.path.abspath(extracted_path)}")
-            else:
-                print(f"Final output saved to: {os.path.abspath(extracted_path)}")
-            
-        else:
-            print("Failed to process the image.")
     except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
+        if args.debug:
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

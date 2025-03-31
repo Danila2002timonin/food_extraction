@@ -17,8 +17,7 @@ def load_json_data(filename):
     try:
         with open(file_path, 'r') as f:
             return json.load(f)
-    except Exception as e:
-        print(f"Error loading {filename}: {e}")
+    except Exception:
         # Return appropriate default based on expected structure
         return [] if filename.endswith('items.json') else {}
 
@@ -61,8 +60,6 @@ def merge_similar_objects(detected_objects, distance_threshold=250, max_object_r
     
     # For multi-piece dishes like salads, try a more aggressive approach
     if is_multi_piece_dish and most_common_label.lower() in MULTI_PIECE_DISH_ITEMS:
-        print(f"Detected multi-piece dish with {most_common_count} pieces of {most_common_label}")
-        
         # Find objects of the most common type
         common_objects = [obj for obj in detected_objects if obj["label"] == most_common_label]
         other_objects = [obj for obj in detected_objects if obj["label"] != most_common_label]
@@ -91,7 +88,6 @@ def merge_similar_objects(detected_objects, distance_threshold=250, max_object_r
             box_ratio = (box_width * box_height) / (img_width * img_height)
             
             if box_ratio >= 0.2:
-                print(f"Created dish bounding box covering {box_ratio:.2f} of the image")
                 return [dish_obj] + other_objects
             
             # Otherwise, expand the box slightly to try to capture more of the dish
@@ -103,7 +99,6 @@ def merge_similar_objects(detected_objects, distance_threshold=250, max_object_r
             dish_obj["box"] = [expanded_min_x, expanded_min_y, expanded_max_x, expanded_max_y]
             dish_obj["expanded"] = True
             
-            print(f"Created expanded dish bounding box")
             return [dish_obj] + other_objects
     
     # Continue with normal clustering approach if the aggressive approach didn't work
@@ -252,7 +247,6 @@ def detect_objects(detector, image):
     try:
         # Normalize image format - ensure we're always working with RGB (no alpha channel)
         if image.mode != 'RGB':
-            print(f"Converting image from {image.mode} to RGB format")
             image = image.convert('RGB')
             
         # Prepare image for the model
@@ -284,7 +278,7 @@ def detect_objects(detector, image):
                 
                 # Skip background class (usually "dining table" or similar)
                 if label_name.lower() in ["dining table", "table", "background"]:
-            continue
+                    continue
                 
                 detected_objects.append({
                     "label": label_name,
@@ -309,7 +303,7 @@ def detect_objects(detector, image):
                 
                 # Skip background class
                 if label_name.lower() in ["dining table", "table", "background"]:
-            continue
+                    continue
                     
                 detected_objects.append({
                     "label": label_name,
@@ -319,8 +313,6 @@ def detect_objects(detector, image):
         
         # If we didn't detect any objects with the current threshold, try a lower threshold as fallback
         if not detected_objects and detector.detection_threshold > 0.05:
-            print(f"No objects detected with threshold {detector.detection_threshold}. Trying with a lower threshold (0.05)...")
-            
             # Temporarily lower the threshold
             original_threshold = detector.detection_threshold
             detector.detection_threshold = 0.05
@@ -330,10 +322,6 @@ def detect_objects(detector, image):
             
             # Restore original threshold
             detector.detection_threshold = original_threshold
-        
-        # Apply additional heuristics to find missing objects
-        if detector.debug_mode:
-            print(f"Initial detection found {len(detected_objects)} objects")
             
         # Attempt to find cups/glasses that might have been missed
         detected_objects = find_missing_tableware(detector, image, detected_objects)
@@ -344,9 +332,8 @@ def detect_objects(detector, image):
         return detected_objects
         
     except Exception as e:
-        print(f"Error detecting objects: {e}")
-        import traceback
-        traceback.print_exc()
+        if detector.debug_mode:
+            traceback.print_exc()
         return []
 
 def find_missing_tableware(detector, image, detected_objects):
@@ -384,7 +371,6 @@ def find_missing_tableware(detector, image, detected_objects):
             # Limit the number of detected circles to avoid overwhelming
             max_circles = 10
             if len(circles) > max_circles:
-                print(f"Limiting heuristic detections to {max_circles} items (from {len(circles)})")
                 circles = circles[:max_circles]
             
             for (x, y, r) in circles:
@@ -411,7 +397,7 @@ def find_missing_tableware(detector, image, detected_objects):
                         "from_heuristic": True
                     })
                     existing_boxes.append(new_box)
-    except Exception as e:
-        print(f"Error in heuristic detection: {e}")
+    except Exception:
+        pass
     
     return detected_objects 
