@@ -1,0 +1,24 @@
+Processing started: 2025-04-07 17:47:15
+Input image: images/xx05.jpg
+Parameters: prompt='None', auto=True, model=facebook/detr-resnet-101, threshold=0.1
+Extracting object from image...
+GPT-4o identified: stuffed peppers with tomato sauce in a plate
+Matching dish: stuffed peppers, description: stuffed peppers with tomato sauce
+STRICT RULE: Looking for stuffed cabbage/pepper, will never select cups
+Removed 7 cups from consideration
+Excluding cell phone as it's forbidden for stuffed peppers
+Using 2 objects after filtering forbidden matches
+Categorized objects: 2 food items, 0 tableware, 0 other
+Prioritizing food items for semantic matching
+Food item: sandwich, similarity: 0.28, match score: 0.29
+Food item: bowl, similarity: 0.22, match score: 0.20
+Looking for specified container: plate
+PREFERENCE: All tableware objects are cups, looking for better alternatives
+Found a bowl, using it instead of cup: bowl (score: 0.19)
+Saving extracted object to extracted_object.png
+Removing background with Stability AI...
+Background removed successfully. Saved to extracted_object_nobg.png
+Using no-background image as source for extension: extracted_object_nobg.png
+Extending image with Stability AI... (left=200, right=200, up=200, down=200)
+Image extended successfully. Saved to extracted_object_extended.png
+Processing completed successfully for images/xx05.jpg

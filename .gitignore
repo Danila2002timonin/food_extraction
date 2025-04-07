@@ -61,6 +61,8 @@ data/
 *.bmp
 images/*
 !images/.gitkeep
+test_pics/*
+testing_results/*
 
 # Project specific
 food_extractor_huggingface.py
