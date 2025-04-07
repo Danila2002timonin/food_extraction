@@ -174,6 +174,7 @@ def process_single_image(detector, image_path, args):
                         right=args.extend_right,
                         up=args.extend_up,
                         down=args.extend_down,
+                        prompt=args.outpaint_prompt,
                         debug_mode=args.debug
                     )
                     extend_detailed_logs = stdout_capture.getvalue()
@@ -247,6 +248,9 @@ def main():
     parser.add_argument('--extend-up', type=int, default=0, help='Pixels to extend on the top')
     parser.add_argument('--extend-down', type=int, default=0, help='Pixels to extend on the bottom')
     parser.add_argument('--stability-api-key', help='Stability AI API key (if not set in environment)')
+    parser.add_argument('--outpaint-prompt', type=str, 
+                      default="Food on a beautiful white plate, centered composition, professional food photography, white background, studio lighting, high resolution, detailed texture",
+                      help='Prompt for Stability AI outpainting')
     
     args = parser.parse_args()
     

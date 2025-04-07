@@ -113,7 +113,7 @@ def remove_background_with_stability(image_path, output_path="extracted_object_n
             traceback.print_exc()
         return False
         
-def extend_image_with_stability(image_path, output_path="extended_image.png", left=0, right=0, up=0, down=0, debug_mode=False):
+def extend_image_with_stability(image_path, output_path="extended_image.png", left=0, right=0, up=0, down=0, prompt=None, debug_mode=False):
     """Extend an image in specified directions using Stability AI's Outpainting API"""
     try:
         # Load .env file to ensure we have the latest API key
@@ -161,6 +161,10 @@ def extend_image_with_stability(image_path, output_path="extended_image.png", le
             data["up"] = up
         if down > 0:
             data["down"] = down
+            
+        # Add prompt if provided
+        if prompt:
+            data["prompt"] = prompt
         
         response = requests.post(
             "https://api.stability.ai/v2beta/stable-image/edit/outpaint",
@@ -199,7 +203,7 @@ def extend_image_with_stability(image_path, output_path="extended_image.png", le
                     "padding_right": right,
                     "padding_top": up,
                     "padding_bottom": down,
-                    "prompt": "food, dish, plate, high quality, detailed, realistic",
+                    "prompt": prompt or "food, dish, plate, high quality, detailed, realistic, white background, studio lighting",
                     "outpainting_mode": "PRECISE",
                     "samples": 1,
                     "cfg_scale": 7,
