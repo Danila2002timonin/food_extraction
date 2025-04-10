@@ -72,4 +72,7 @@ test_data
 test_results
 test_results2
 
-test_pipeline.py
+test_scripts
+*.txt
+*.webp
+test_*
