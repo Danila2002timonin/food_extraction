@@ -65,17 +65,11 @@ uv run run.py --image path/to/image.jpg --auto
 # Удаление фона изображения
 uv run run.py --image path/to/image.jpg --prompt "steak" --remove-bg
 
-# Удаление посторонних предметов (вилок, ложек и т.д.) с помощью inpainting
-uv run run.py --image path/to/image.jpg --prompt "steak" --remove-bg --remove-utensils
-
-# Сохранение посторонних предметов на изображении
-uv run run.py --image path/to/image.jpg --prompt "steak with fork" --remove-bg --keep-utensils
-
 # Расширение изображения (требуется API Stability AI)
 uv run run.py --image path/to/image.jpg --prompt "cake" --extend --extend-left 100 --extend-right 100
 
 # Полный набор опций
-uv run run.py --image path/to/image.jpg --prompt "salad" --output result.png --model facebook/detr-resnet-101 --threshold 0.2 --debug --remove-bg --remove-utensils --extend --extend-left 50 --extend-right 50 --extend-up 30 --extend-down 30
+uv run run.py --image path/to/image.jpg --prompt "salad" --output result.png --model facebook/detr-resnet-101 --threshold 0.2 --debug --remove-bg --extend --extend-left 50 --extend-right 50 --extend-up 30 --extend-down 30
 ```
 
 ## Параметры командной строки
@@ -89,8 +83,6 @@ uv run run.py --image path/to/image.jpg --prompt "salad" --output result.png --m
 - `--threshold` - Порог уверенности для обнаружения (0.0-1.0)
 - `--debug` - Включение режима отладки с визуализацией
 - `--remove-bg` - Использование Stability AI для удаления фона
-- `--remove-utensils` - Удаление посторонних предметов (вилок, ложек и т.д.) с помощью inpainting (включено по умолчанию)
-- `--keep-utensils` - Сохранение посторонних предметов на изображении (отключает --remove-utensils)
 - `--extend` - Использование Stability AI для расширения изображения
 - `--extend-left` - Пиксели для расширения с левой стороны
 - `--extend-right` - Пиксели для расширения с правой стороны
@@ -107,17 +99,3 @@ uv run run.py --image path/to/image.jpg --prompt "salad" --output result.png --m
 - `STABLE_DIFFUSION_API_KEY` - Ключ API Stability AI
 
 Их можно установить в файле `.env` в корне проекта. 
-
-## Функциональность инпейнтинга
-
-После удаления фона изображения, функция инпейнтинга с помощью Stability AI автоматически удаляет посторонние предметы с изображения еды, такие как:
-- Вилки
-- Ложки
-- Ножи
-- Палочки для еды
-- Другие нежелательные элементы
-
-Эта функция:
-- Активирована по умолчанию при использовании `--remove-bg`
-- Может быть отключена с помощью флага `--keep-utensils`
-- Использует Stability AI API для создания чистого изображения еды на белом фоне 

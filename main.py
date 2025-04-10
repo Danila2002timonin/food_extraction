@@ -68,7 +68,6 @@ def process_single_image(detector, image_path, args):
             success, error_details = remove_background_with_stability(
                 extracted_path, 
                 nobg_path, 
-                remove_utensils=args.remove_utensils,
                 debug_mode=args.debug
             )
             
@@ -176,8 +175,6 @@ def main():
     
     # Stability AI features
     parser.add_argument('--remove-bg', action='store_true', help='Use Stability AI to remove background after extraction')
-    parser.add_argument('--remove-utensils', action='store_true', default=True, help='Remove utensils and other unwanted items using inpainting (default: True)')
-    parser.add_argument('--keep-utensils', action='store_true', help='Keep utensils and other items in the image (disables --remove-utensils)')
     parser.add_argument('--extend', action='store_true', help='Use Stability AI to extend image after extension')
     parser.add_argument('--extend-left', type=int, default=0, help='Pixels to extend on the left side')
     parser.add_argument('--extend-right', type=int, default=0, help='Pixels to extend on the right side')
@@ -186,10 +183,6 @@ def main():
     parser.add_argument('--stability-api-key', help='Stability AI API key (if not set in environment)')
     
     args = parser.parse_args()
-    
-    # If --keep-utensils is specified, disable utensil removal
-    if args.keep_utensils:
-        args.remove_utensils = False
     
     # Verify that either a prompt is provided or auto mode is enabled
     if not args.prompt and not args.auto:
