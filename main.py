@@ -1,21 +1,17 @@
-#!/usr/bin/env python
 import os
 import sys
 import argparse
 import traceback
 from pathlib import Path
 import glob
-import io
 import datetime
+from PIL import Image
 
 from detector.hugging_face_detector import HuggingFaceDetector
 from ai_services.stability_ai import remove_background_with_stability, extend_image_with_stability
 
 def process_single_image(detector, image_path, args):
     """Process a single image with the provided detector and arguments."""
-    # Create a log capture for this image
-    log_output = io.StringIO()
-    
     # Generate the output subfolder
     if args.output_dir:
         # Create subfolder based on image name
@@ -23,66 +19,31 @@ def process_single_image(detector, image_path, args):
         image_name = os.path.splitext(base_filename)[0]
         image_output_dir = os.path.join(args.output_dir, image_name)
         os.makedirs(image_output_dir, exist_ok=True)
-        
-        # Set up log file
-        log_file_path = os.path.join(image_output_dir, "processing_log.txt")
     else:
         # Single file mode - use the output path
         image_output_dir = os.path.dirname(args.output)
         image_name = os.path.splitext(os.path.basename(args.output))[0]
-        log_file_path = os.path.splitext(args.output)[0] + "_log.txt"
     
-    # Start log with timestamp and input information
+    # Print processing information
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_message = f"Processing started: {timestamp}\n"
-    log_message += f"Input image: {image_path}\n"
-    log_message += f"Parameters: prompt='{args.prompt}', auto={args.auto}, model={args.model}, threshold={args.threshold}\n"
-    
-    print(log_message)
-    log_output.write(log_message)
+    print(f"Processing started: {timestamp}")
+    print(f"Input image: {image_path}")
+    print(f"Parameters: prompt='{args.prompt}', auto={args.auto}, model={args.model}, threshold={args.threshold}")
     
     try:
         # Extract the object from the image
-        result_message = "Extracting object from image..."
-        print(result_message)
-        log_output.write(result_message + "\n")
+        print("Extracting object from image...")
         
-        # Capture stdout during model execution to get detailed logs
-        original_stdout = sys.stdout
-        stdout_capture = io.StringIO()
-        
-        try:
-            # Redirect stdout to our capture
-            sys.stdout = stdout_capture
-            
-            # Process the image with the detector
-            result = detector.process_image(
-                image_path=image_path,
-                text_prompt=args.prompt,
-                debug=args.debug,
-                auto_mode=args.auto
-            )
-            
-            # Get the captured output
-            detailed_logs = stdout_capture.getvalue()
-        finally:
-            # Restore stdout no matter what
-            sys.stdout = original_stdout
-        
-        # Print the detailed logs to console and add to our log
-        if detailed_logs:
-            print(detailed_logs)
-            log_output.write(detailed_logs)
+        # Process the image with the detector
+        result = detector.process_image(
+            image_path=image_path,
+            text_prompt=args.prompt,
+            debug=args.debug,
+            auto_mode=args.auto
+        )
         
         if not result:
-            error_msg = f"No result found for {image_path}"
-            print(error_msg)
-            log_output.write(error_msg + "\n")
-            
-            # Save log even if processing failed
-            with open(log_file_path, 'w') as log_file:
-                log_file.write(log_output.getvalue())
-            
+            print(f"No result found for {image_path}")
             return False
         
         # Set output paths
@@ -93,10 +54,7 @@ def process_single_image(detector, image_path, args):
             extracted_path = args.output
         
         # Save the extracted object
-        save_msg = f"Saving extracted object to {extracted_path}"
-        print(save_msg)
-        log_output.write(save_msg + "\n")
-        
+        print(f"Saving extracted object to {extracted_path}")
         detector.save_result(result, extracted_path)
         
         # Apply Stability AI background removal if requested
@@ -105,34 +63,21 @@ def process_single_image(detector, image_path, args):
             # Define output path for the no-background image
             nobg_path = os.path.join(image_output_dir, f"{image_name}_nobg.png")
             
-            bg_msg = f"Removing background with Stability AI..."
-            print(bg_msg)
-            log_output.write(bg_msg + "\n")
+            print(f"Removing background with Stability AI...")
             
-            # Capture stdout for background removal as well
-            stdout_capture = io.StringIO()
-            
-            try:
-                sys.stdout = stdout_capture
-                success = remove_background_with_stability(extracted_path, nobg_path, debug_mode=args.debug)
-                bg_detailed_logs = stdout_capture.getvalue()
-            finally:
-                sys.stdout = original_stdout
-            
-            if bg_detailed_logs:
-                print(bg_detailed_logs)
-                log_output.write(bg_detailed_logs)
+            success, error_details = remove_background_with_stability(
+                extracted_path, 
+                nobg_path, 
+                remove_utensils=args.remove_utensils,
+                debug_mode=args.debug
+            )
             
             if success:
                 # Update extracted_path for potential further processing
                 extracted_path = nobg_path
-                success_msg = f"Background removed successfully. Saved to {nobg_path}"
-                print(success_msg)
-                log_output.write(success_msg + "\n")
+                print(f"Background removed successfully. Saved to {nobg_path}")
             else:
-                fail_msg = "Background removal failed"
-                print(fail_msg)
-                log_output.write(fail_msg + "\n")
+                print(f"Background removal failed: {error_details}")
                 # If background removal failed, set nobg_path to None
                 nobg_path = None
         
@@ -140,35 +85,48 @@ def process_single_image(detector, image_path, args):
         if args.extend:
             # Check if any extension values are provided
             if args.extend_left > 0 or args.extend_right > 0 or args.extend_up > 0 or args.extend_down > 0:
-                # Define output path for the extended image
-                extended_path = os.path.join(image_output_dir, f"{image_name}_extended.png")
                 
-                # Use the background-removed image if it was successfully created
-                source_for_outpainting = extracted_path
-                
-                # Since nobg_path is already known from earlier processing,
-                # we can use it directly without checking file existence
-                if nobg_path is not None and args.remove_bg:
-                    source_msg = f"Using no-background image as source for extension: {nobg_path}"
-                    print(source_msg)
-                    log_output.write(source_msg + "\n")
-                    source_for_outpainting = nobg_path
+                # Only proceed with extension if background was removed successfully
+                if not args.remove_bg:
+                    print("Background removal not requested. Image extension requires background removal. Skipping extension.")
+                elif nobg_path is None:
+                    print("Background removal failed, skipping image extension")
                 else:
-                    source_msg = f"Using original extracted image as source for extension: {extracted_path}"
-                    print(source_msg)
-                    log_output.write(source_msg + "\n")
-                
-                extend_msg = f"Extending image with Stability AI... (left={args.extend_left}, right={args.extend_right}, up={args.extend_up}, down={args.extend_down})"
-                print(extend_msg)
-                log_output.write(extend_msg + "\n")
-                
-                # Capture stdout for extend operation as well
-                stdout_capture = io.StringIO()
-                
-                try:
-                    sys.stdout = stdout_capture
-                    extend_image_with_stability(
-                        source_for_outpainting, 
+                    # Create a version with solid white background for outpainting
+                    try:
+                        # Open the transparent PNG
+                        transparent_img = Image.open(nobg_path)
+                        
+                        # Create a white background image of the same size
+                        white_bg = Image.new("RGBA", transparent_img.size, (255, 255, 255, 255))
+                        
+                        # Paste the transparent image on the white background
+                        white_bg.paste(transparent_img, (0, 0), transparent_img)
+                        
+                        # Convert to RGB to ensure compatibility
+                        white_bg = white_bg.convert("RGB")
+                        
+                        # Save as a new file
+                        white_bg_path = os.path.join(image_output_dir, f"{image_name}_nobg_white.png")
+                        white_bg.save(white_bg_path)
+                        
+                        # Use this as source for outpainting
+                        source_path = white_bg_path
+                        print(f"Using white background version for extension: {source_path}")
+                    except Exception as e:
+                        # If this fails, fall back to the transparent version
+                        source_path = nobg_path
+                        print(f"Failed to create white background version, using transparent version: {str(e)}")
+                        print(f"Using transparent image as source for extension: {source_path}")
+                    
+                    # Define output path for the extended image
+                    extended_path = os.path.join(image_output_dir, f"{image_name}_extended.png")
+                    
+                    # Proceed with extension
+                    print(f"Extending image with Stability AI... (left={args.extend_left}, right={args.extend_right}, up={args.extend_up}, down={args.extend_down})")
+
+                    extension_success, extension_error = extend_image_with_stability(
+                        source_path,
                         extended_path,
                         left=args.extend_left,
                         right=args.extend_right,
@@ -176,41 +134,18 @@ def process_single_image(detector, image_path, args):
                         down=args.extend_down,
                         debug_mode=args.debug
                     )
-                    extend_detailed_logs = stdout_capture.getvalue()
-                finally:
-                    sys.stdout = original_stdout
-                
-                if extend_detailed_logs:
-                    print(extend_detailed_logs)
-                    log_output.write(extend_detailed_logs)
-                
-                success_ext_msg = f"Image extended successfully. Saved to {extended_path}"
-                print(success_ext_msg)
-                log_output.write(success_ext_msg + "\n")
-        
-        # Finalize log
-        success_final_msg = f"Processing completed successfully for {image_path}"
-        print(success_final_msg)
-        log_output.write(success_final_msg + "\n")
-        
-        # Save the log to file
-        with open(log_file_path, 'w') as log_file:
-            log_file.write(log_output.getvalue())
+                    
+                    if extension_success:
+                        print(f"Image extended successfully. Saved to {extended_path}")
+                    else:
+                        print(f"Image extension failed: {extension_error}")
         
         return True
     except Exception as e:
-        error_msg = f"Error processing {image_path}: {str(e)}"
-        print(error_msg)
-        log_output.write(error_msg + "\n")
+        print(f"Error processing {image_path}: {str(e)}")
         
         if args.debug:
-            trace = traceback.format_exc()
-            print(trace)
-            log_output.write(trace + "\n")
-        
-        # Save log even if processing failed
-        with open(log_file_path, 'w') as log_file:
-            log_file.write(log_output.getvalue())
+            traceback.print_exc()
         
         return False
 
@@ -241,6 +176,8 @@ def main():
     
     # Stability AI features
     parser.add_argument('--remove-bg', action='store_true', help='Use Stability AI to remove background after extraction')
+    parser.add_argument('--remove-utensils', action='store_true', default=True, help='Remove utensils and other unwanted items using inpainting (default: True)')
+    parser.add_argument('--keep-utensils', action='store_true', help='Keep utensils and other items in the image (disables --remove-utensils)')
     parser.add_argument('--extend', action='store_true', help='Use Stability AI to extend image after extension')
     parser.add_argument('--extend-left', type=int, default=0, help='Pixels to extend on the left side')
     parser.add_argument('--extend-right', type=int, default=0, help='Pixels to extend on the right side')
@@ -249,6 +186,10 @@ def main():
     parser.add_argument('--stability-api-key', help='Stability AI API key (if not set in environment)')
     
     args = parser.parse_args()
+    
+    # If --keep-utensils is specified, disable utensil removal
+    if args.keep_utensils:
+        args.remove_utensils = False
     
     # Verify that either a prompt is provided or auto mode is enabled
     if not args.prompt and not args.auto:
@@ -295,13 +236,11 @@ def main():
                 print(f"No images found matching patterns {args.pattern} in directory {args.image_dir}")
                 return
             
-            # Create summary log
-            summary_log_path = os.path.join(args.output_dir, "processing_summary.txt")
-            with open(summary_log_path, "w") as summary_log:
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                summary_log.write(f"Batch processing started: {timestamp}\n")
-                summary_log.write(f"Input directory: {args.image_dir}\n")
-                summary_log.write(f"Total images found: {len(image_files)}\n\n")
+            # Print batch processing summary
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"Batch processing started: {timestamp}")
+            print(f"Input directory: {args.image_dir}")
+            print(f"Total images found: {len(image_files)}")
             
             # Process each image
             successful = 0
@@ -310,14 +249,11 @@ def main():
                 if process_single_image(detector, image_path, args):
                     successful += 1
             
-            # Update summary log with completion information
+            # Print completion information
             summary_message = f"Processed {successful} of {len(image_files)} images successfully"
             print(f"\n{summary_message}")
-            
-            with open(summary_log_path, "a") as summary_log:
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                summary_log.write(f"\nBatch processing completed: {timestamp}\n")
-                summary_log.write(f"{summary_message}\n")
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"Batch processing completed: {timestamp}")
             
     except Exception as e:
         if args.debug:
