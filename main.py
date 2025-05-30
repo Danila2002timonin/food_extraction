@@ -92,31 +92,33 @@ def process_single_image(detector, image_path, args):
                     print("Background removal failed, skipping image extension")
                 else:
                     # Create a version with solid white background for outpainting
-                    try:
-                        # Open the transparent PNG
-                        transparent_img = Image.open(nobg_path)
+                    # try:
+                    #     # Open the transparent PNG
+                    #     transparent_img = Image.open(nobg_path)
                         
-                        # Create a white background image of the same size
-                        white_bg = Image.new("RGBA", transparent_img.size, (255, 255, 255, 255))
+                    #     # Create a white background image of the same size
+                    #     white_bg = Image.new("RGBA", transparent_img.size, (255, 255, 255, 255))
                         
-                        # Paste the transparent image on the white background
-                        white_bg.paste(transparent_img, (0, 0), transparent_img)
+                    #     # Paste the transparent image on the white background
+                    #     white_bg.paste(transparent_img, (0, 0), transparent_img)
                         
-                        # Convert to RGB to ensure compatibility
-                        white_bg = white_bg.convert("RGB")
+                    #     # Convert to RGB to ensure compatibility
+                    #     white_bg = white_bg.convert("RGB")
                         
-                        # Save as a new file
-                        white_bg_path = os.path.join(image_output_dir, f"{image_name}_nobg_white.png")
-                        white_bg.save(white_bg_path)
+                    #     # Save as a new file
+                    #     white_bg_path = os.path.join(image_output_dir, f"{image_name}_nobg_white.png")
+                    #     white_bg.save(white_bg_path)
                         
-                        # Use this as source for outpainting
-                        source_path = white_bg_path
-                        print(f"Using white background version for extension: {source_path}")
-                    except Exception as e:
-                        # If this fails, fall back to the transparent version
-                        source_path = nobg_path
-                        print(f"Failed to create white background version, using transparent version: {str(e)}")
-                        print(f"Using transparent image as source for extension: {source_path}")
+                    #     # Use this as source for outpainting
+                    #     source_path = white_bg_path
+                    #     print(f"Using white background version for extension: {source_path}")
+                    # except Exception as e:
+                    #     # If this fails, fall back to the transparent version
+                    #     source_path = nobg_path
+                    #     print(f"Failed to create white background version, using transparent version: {str(e)}")
+                    #     print(f"Using transparent image as source for extension: {source_path}")
+                    source_path = nobg_path
+                    print(f"Using transparent image as source for extension skipping adding white background: {source_path}")
                     
                     # Define output path for the extended image
                     extended_path = os.path.join(image_output_dir, f"{image_name}_extended.png")

@@ -182,7 +182,7 @@ def extend_image_with_stability(image_path, output_path="extended_image.png", le
         if prompt:
             data["prompt"] = prompt
         else:
-            data["prompt"] = "food, dish, plate, high quality, detailed, realistic, pure white background, studio lighting, no background details"
+            data["prompt"] = "food dish elegantly plated on white ceramic plate, clean white background, professional food photography, high quality, realistic lighting, restaurant style presentation, no extra objects, minimal shadows, centered composition"
 
         if debug_mode:
             print(f"Using v2beta endpoint with data: {data}")

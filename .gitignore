@@ -76,3 +76,7 @@ test_scripts
 *.txt
 *.webp
 test_*
+
+testing_results/
+
+batch_testing.py
